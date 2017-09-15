@@ -1,11 +1,144 @@
 library(DeliveryMan);
 
+# Function to get a really easy heuristic estimation 
+easyHeuristic <- function(node, goal)
+{
+	return( as.integer( abs(node[2]-goal[2]) + abs(node[1]-goal[1]) ) )
+}
+
+# Convert x and y of a node to a matrix index
+xy2Index <-function(node)
+{
+	x <- node[1]
+	y <- node[2]
+	return( (x-1)*dim + y )
+}
+
+# Find node with lowest fscore
+findCurrent <- function(fscore, openSet)
+{
+	# Initialize with high value
+	lowest_fscore <- c(1,1000)
+	for(i in 1:(dim*dim))
+	{
+		# Is node used?
+		if(openSet[i] == 1)
+		{
+			# Does it have a lower fscore than the lowest one found so far
+			if(lowest_fscore[2] < fscore[i])
+			{
+				lowest_fscore[1] <- i
+				lowest_fscore[2] <- fscore[i]
+			}
+		}
+	}
+	# Return an index
+	return(lowest_fscore[1])
+}
+
+# Find neighbors, node[1] = x, node[2] = y 
+findNeighbors <- function(node)
+{
+	x <- node[1]
+	y <- node[2]
+	# Add all possible neighbors
+	neighbors <- list( c(x-1, y), c(x, y+1), c(x+1, y), c(x, y-1) )
+	# Throw out neighbors which do not exist
+	for(i in length(neighbors))
+	{
+		if( (neighbors[[i]][1] < 0) || (neighbors[[i]][2] < 0))
+			neighbors = neighbors[-i]	
+	}
+	# Convert all neighbors to indices	
+	for(i in length(neighbors))
+	{
+		neighbors[i] = xy2Index(neighbors[i])	
+	}
+	return(neighbors)
+}
+
+calcDistance <- function(a, b, hroads, vroads)
+{
+	# Left neighbor
+	if( (a-dim) == b)
+		distance <- hroads[a-dim]
+	# Right neighbor
+	if( (a+dim) == b)
+		distance <- hroads[a]
+	# Upper neighbor
+	if( (a-1) == b)
+		distance <- vroads[a-2]	
+	# Lower neighbor 
+	if( (a+1) == b)
+		distance <- vroads[a]
+}
+
+# Function to calculate A*
+AStar <- function(start, goal, hroads, vroads)
+{
+	# Convert given coordinates to indices
+	start <- xy2Index(start)
+	goal <- xy2Index(goal)
+
+	# For each node the cost to get from start to that node
+	gscore <- matrix( c( rep(1000, dim*dim) ), nrow = dim, byrow = TRUE)
+		
+	# For each node the cost to get from start to the goal (heuristic) 
+	fscore <- matrix( c( rep(1000, dim*dim) ), nrow = dim, byrow = TRUE)
+	# Initialize start with the heuristic 
+	fscore[start] = easyHeuristic(start, goal);
+
+	# Nodes which are already evaluated, 1 = evaluated, 0 = not evaluated
+	closedSet <- matrix( c( rep(0, dim*dim) ), nrow = dim, byrow = TRUE)
+
+	# Currently discovered nodes, 1 = discovered, 0 = not yet discovered
+	openSet <- matrix( c(rep(0, dim*dim) ), nrow = dim, byrow = TRUE)
+	# Initialize start node as only known node
+	openSet[start] <- 1	
+
+	# Matrix which is recording where the predecessor of each node is
+	cameFrom <- matrix( c(rep(0, dim*dim) ), nrow = dim, byrow = TRUE)
+
+	# Compare openSet with null matrix if identical there are no open nodes (we are done)
+	while(!identical(openSet, matrix(c( rep(0, dim*dim) ), nrow = dim, byrow = TRUE ) ) )
+	{	
+		current <- findCurrent(fscore, openSet)
+		if(current == goal)
+		 cat("Reconstruct path")
+		
+		# Remove from openSet and add to closedSet
+		openSet[current] = 0;	
+		closedSet[current] = 1;
+		for(neighbor in findNeighbors(current))
+		{
+			# Ignore neighbor if already evaluated
+			if(closedSet[neighbor] == 1)
+				next
+			# If neighbor not discovered yet, discover it
+			if(openSet[neighbor] != 1)
+				openSet[neighbor] == 1
+			# Calculate the new tentative score from current node to neighbor node
+			tentative_gscore <- gscore[current] + calcDistance(current, neighbor)
+			# Seems to be a bad node
+			if(tentative_gscore > gscore[neighbor])
+				next
+			# Best node so far found. Record it.
+			cameFrom[neighbor] <- current	
+			gscore[neighbor] <- tentative_gscore
+			fscore[neighbor] <- gscore[neighbor] + easyHeuristic(neighbor, goal) 	
+		}	
+	}
+}
+
 # Our function
 ourFunction <- function(traffic, car, packages){
-	print(traffic)	
-	print(car)
-	print(packages)
+	
+	start <- packages[1, c(1,2)]
+	goal <- packages[1, c(3,4)]
+	print(traffic)
+	#AStar(start, goal, hroads, vroads)
+	car$nextMove = 8;
 	return (car)
 }
 
-runDeliveryMan(carReady = ourFunction, dim = 10, turns = 2000, doPlot = T, pause = 0.1, del = 5);
+runDeliveryMan(carReady = ourFunction, dim = 10, turns = 10, doPlot = T, pause = 1, del = 5);
