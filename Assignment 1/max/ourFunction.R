@@ -124,12 +124,8 @@ findNeighbors <- function(node)
 #############################################################################################
 calcDistance <- function(a, b, hroads, vroads)
 {
-	print(a)
-	print(b)
 	a <- index2XY(a)
 	b <- index2XY(b)
-	print(a)
-	print(b)
 	# Left neighbor
 	if( (a[1]-1) == b[1])
 		distance <- hroads[a[2], a[1]-1]
@@ -143,6 +139,45 @@ calcDistance <- function(a, b, hroads, vroads)
 	if( (a[2]+1) == b[2])
 		distance <- vroads[a[2], a[1]]
 	return(distance)
+}
+
+#############################################################################################
+#
+# Function trace back the route to go giving a vector with necessary moves to go there 
+#
+#############################################################################################
+traceBack <- function(start, goal, cameFrom)
+{
+	current <- goal
+	moves <- c()
+	i <- 1
+	while(current != start)
+	{
+		# Go down
+		if(cameFrom[current] == (current-1) )
+		{
+			moves[i] <- 8 
+		}
+		# Go left
+		if(cameFrom[current] == (current+dim) )
+		{
+			moves[i] <- 4
+		}
+		# Go up
+		if(cameFrom[current] == (current+1) )
+		{
+			moves[i] <- 2 
+		}
+		# Go right
+		if(cameFrom[current] == (current-dim) )
+		{
+			moves[i] <- 6
+		}
+		current <- cameFrom[current]
+		i <- i+1
+	}
+	# Turn vector arround
+	return(rev(moves))
 }
 
 #############################################################################################
@@ -181,13 +216,9 @@ AStar <- function(start, goal, hroads, vroads)
 	while(!identical(openSet, matrix(c( rep(0, dim*dim) ), nrow = dim, byrow = TRUE ) ) )
 	{	
 		current <- findCurrent(fscore, openSet)
-		cat("Current node: ")
-		print(current)
 		if(current == goal)
 		{
-		 	cat("Reconstruct path")
-			print(cameFrom)
-			break
+			return(traceBack(start, goal, cameFrom))
 		}
 
 		# Remove from openSet and add to closedSet
@@ -204,39 +235,15 @@ AStar <- function(start, goal, hroads, vroads)
 			# Calculate the new tentative gscore from current node to neighbor node
 			tentative_gscore <- gscore[current] + calcDistance(current, neighbor, hroads, vroads)
 			# Seems to be a bad node
-			cat("tentative_gscore")
-			print(tentative_gscore)
-			cat("gscore[current]")
-			print(gscore[current])
-			cat("distance")
-			print(calcDistance(current, neighbor, hroads, vroads))
 			if(tentative_gscore > gscore[neighbor])
 				next
 			# Best node so far found. Record it.
 			cameFrom[neighbor] <- current	
 			gscore[neighbor] <- tentative_gscore
 			fscore[neighbor] <- gscore[neighbor] + easyHeuristic(neighbor, goal) 	
-			cat("Ein Nachbar:\n")
-			print(neighbor)
-		}
-		cat("vroads\n")
-		print(vroads)
-		cat("hroads\n")
-		print(hroads)
-		cat("openSet\n")
-		print(openSet)
-		cat("closedSet\n")
-		print(closedSet)
-		cat("gscore\n")
-		print(gscore)
-		cat("fscore\n")
-		print(fscore)
-		cat("cameFrom\n")
-		print(cameFrom)
-		readline(prompt="We are WAITING ;)")	
+		}	
 	}
-	cat("A* done\n")
-	readline()
+	return(FALSE)
 }
 
 #############################################################################################
@@ -244,17 +251,78 @@ AStar <- function(start, goal, hroads, vroads)
 # Function to interface with the delivery man game
 #
 #############################################################################################
-ourFunction <- function(traffic, car, packages){
+ourFunction <- function(traffic, car, packages){	
+	# Memory initialization
+	if( !exists("state", where=car$mem) )
+	{
+		car$mem$state <- "EMPTY"
+		car$mem$moves <- c()
+		car$mem$packageCarried <- NA
+	}
 	
-	start <- packages[1, c(1,2)]
-	goal <- packages[1, c(3,4)]
-	cat("Start 'n goal:\n")
-	print(start)
-	print(goal)
-	AStar(start, goal, traffic$hroads, traffic$vroads)
-	car$nextMove = 8;
-	return (car)
+	# Main state machine
+	car$nextMove <- NA
+	repeat
+	{
+		if( car$mem$state == "EMPTY" )
+		{
+			# Do calculations here where to pick up the next parcel
+			# This should be optimised for the final version to e.g. 
+			# pick up the closest parcel
+			start <- c(car$x, car$y)
+			for(i in 1:dim(packages)[1])
+			{
+				if( packages[i, 5] == 0 )
+				{
+					goal <- packages[i, c(1,2)]
+					car$mem$packageCarried <- i
+					break
+				}
+			}
+			cat("Pick up parcel at\n")
+			print(start)
+			print(goal)
+			car$mem$moves<- AStar(start, goal, traffic$hroads, traffic$vroads)
+		       	car$mem$state <- "MOVING_EMPTY"	
+		}
+		else if( car$mem$state == "MOVING_EMPTY" )	
+		{
+			# Move the car until there are no more movements 
+			car$nextMove <- car$mem$moves[1]
+			car$mem$moves <- car$mem$moves[-1]
+			if( length(car$mem$moves) == 0 )
+				car$mem$state <- "LOADED"
+		}
+		else if( car$mem$ state == "LOADED" )	
+		{
+			# Do calculations where to deliver parcel
+			start <- c(car$x, car$y)
+			goal <- packages[car$mem$packageCarried, c(3,4)]
+			car$mem$moves <- AStar(start, goal, traffic$hroads, traffic$vroads) 
+			car$mem$state <- "MOVING_LOADED"	
+		}
+		else if( car$mem$ state == "MOVING_LOADED" )	
+		{
+			# Move the car until there are no more movements
+			car$nextMove <- car$mem$moves[1]
+                        car$mem$moves <- car$mem$moves[-1]
+                        if( length(car$mem$moves) == 0 )
+				car$mem$state <- "EMPTY"	
+		}
+	
+		cat("State: ")
+		print(car$mem$state)
+		cat("Next move: ")
+		print(car$nextMove)
+		readline(prompt="Press ENTER")
+
+		# Break only if a new next move is determined
+		# Do not lose turns
+		if( !is.na(car$nextMove) )
+			break
+	}
+		return(car)
 }
 
 # Run delivery man game
-runDeliveryMan(carReady = ourFunction, dim = 10, turns = 10, doPlot = F, pause = 1, del = 5);
+runDeliveryMan(carReady = ourFunction, dim = 10, turns = 1000, doPlot = T, pause = 0.1, del = 3);
