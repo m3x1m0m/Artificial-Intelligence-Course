@@ -1,12 +1,38 @@
+#############################################################################################
+#
+# Project:	Assignment 1, Artificial Intelligence, Uppsala University
+# Author: 	Maximilian Stiefel
+# Last mod.:	17.09.2017
+#
+#############################################################################################
+
+#############################################################################################
+#Libraries
+#############################################################################################
 library(DeliveryMan);
 
+#############################################################################################
+# Global variables
+#############################################################################################
+dim = 10
+
+#############################################################################################
+#
 # Function to get a really easy heuristic estimation 
+#
+#############################################################################################
 easyHeuristic <- function(node, goal)
 {
+	node <- index2XY(node)
+	goal <- index2XY(goal)
 	return( as.integer( abs(node[2]-goal[2]) + abs(node[1]-goal[1]) ) )
 }
 
-# Convert x and y of a node to a matrix index
+#############################################################################################
+#
+# Function to convert x and y to index
+#
+#############################################################################################
 xy2Index <-function(node)
 {
 	x <- node[1]
@@ -14,7 +40,31 @@ xy2Index <-function(node)
 	return( (x-1)*dim + y )
 }
 
-# Find node with lowest fscore
+#############################################################################################
+#
+# Function to convert an index to x and y
+#
+#############################################################################################
+index2XY <- function(node)
+{
+	if( (node%%dim) == 0)
+	{
+		x <- node/dim
+		y <- dim
+	}
+	else
+	{
+		x <- (as.integer(node/dim) + 1)
+		y <- (node%%dim)
+	}
+	return( c(x,y) )
+}
+
+#############################################################################################
+#
+# Function to find the node which is not evaluated with the lowest fscore
+#
+#############################################################################################
 findCurrent <- function(fscore, openSet)
 {
 	# Initialize with high value
@@ -25,7 +75,7 @@ findCurrent <- function(fscore, openSet)
 		if(openSet[i] == 1)
 		{
 			# Does it have a lower fscore than the lowest one found so far
-			if(lowest_fscore[2] < fscore[i])
+			if(lowest_fscore[2] > fscore[i])
 			{
 				lowest_fscore[1] <- i
 				lowest_fscore[2] <- fscore[i]
@@ -36,53 +86,81 @@ findCurrent <- function(fscore, openSet)
 	return(lowest_fscore[1])
 }
 
-# Find neighbors, node[1] = x, node[2] = y 
+#############################################################################################
+#
+# Function to find all neighbors of a node considering, that the board has edges
+#
+#############################################################################################
 findNeighbors <- function(node)
 {
+	node <- index2XY(node)
 	x <- node[1]
 	y <- node[2]
 	# Add all possible neighbors
-	neighbors <- list( c(x-1, y), c(x, y+1), c(x+1, y), c(x, y-1) )
+	neighbors <- list( c(x-1, y), c(x, y+1), c(x+1, y), c(x, y-1) )	
 	# Throw out neighbors which do not exist
-	for(i in length(neighbors))
-	{
-		if( (neighbors[[i]][1] < 0) || (neighbors[[i]][2] < 0))
-			neighbors = neighbors[-i]	
+	i <- 1
+	while(i <= length(neighbors))
+	{		
+		if( (neighbors[[i]][1] <= 0) || (neighbors[[i]][2] <= 0) || (neighbors[[i]][1] > dim) || (neighbors[[i]][2] > dim))
+		{
+			neighbors <- neighbors[-i]
+			i <- i-1
+		}	
+		i <- i+1
 	}
-	# Convert all neighbors to indices	
-	for(i in length(neighbors))
+	# Convert all neighbors to indices		
+	for(i in 1:length(neighbors))
 	{
-		neighbors[i] = xy2Index(neighbors[i])	
+		neighbors[i] = xy2Index(neighbors[[i]])	
 	}
 	return(neighbors)
 }
 
+#############################################################################################
+#
+# Function to obtain the distance between two neighbors using vroads and hroads
+#
+#############################################################################################
 calcDistance <- function(a, b, hroads, vroads)
 {
+	print(a)
+	print(b)
+	a <- index2XY(a)
+	b <- index2XY(b)
+	print(a)
+	print(b)
 	# Left neighbor
-	if( (a-dim) == b)
-		distance <- hroads[a-dim]
+	if( (a[1]-1) == b[1])
+		distance <- hroads[a[2], a[1]-1]
 	# Right neighbor
-	if( (a+dim) == b)
-		distance <- hroads[a]
+	if( (a[1]+1) == b[1])
+		distance <- hroads[a[2], a[1]]
 	# Upper neighbor
-	if( (a-1) == b)
-		distance <- vroads[a-2]	
+	if( (a[2]-1) == b[2])
+		distance <- vroads[a[2]-1, a[1]]	
 	# Lower neighbor 
-	if( (a+1) == b)
-		distance <- vroads[a]
+	if( (a[2]+1) == b[2])
+		distance <- vroads[a[2], a[1]]
+	return(distance)
 }
 
-# Function to calculate A*
+#############################################################################################
+#
+# Function using a lot of other functions to realize the A* algorithm
+#
+#############################################################################################
 AStar <- function(start, goal, hroads, vroads)
 {
 	# Convert given coordinates to indices
+	# Indices are the standard
 	start <- xy2Index(start)
 	goal <- xy2Index(goal)
 
 	# For each node the cost to get from start to that node
 	gscore <- matrix( c( rep(1000, dim*dim) ), nrow = dim, byrow = TRUE)
-		
+	gscore[start] <- 0	
+
 	# For each node the cost to get from start to the goal (heuristic) 
 	fscore <- matrix( c( rep(1000, dim*dim) ), nrow = dim, byrow = TRUE)
 	# Initialize start with the heuristic 
@@ -103,9 +181,15 @@ AStar <- function(start, goal, hroads, vroads)
 	while(!identical(openSet, matrix(c( rep(0, dim*dim) ), nrow = dim, byrow = TRUE ) ) )
 	{	
 		current <- findCurrent(fscore, openSet)
+		cat("Current node: ")
+		print(current)
 		if(current == goal)
-		 cat("Reconstruct path")
-		
+		{
+		 	cat("Reconstruct path")
+			print(cameFrom)
+			break
+		}
+
 		# Remove from openSet and add to closedSet
 		openSet[current] = 0;	
 		closedSet[current] = 1;
@@ -116,29 +200,61 @@ AStar <- function(start, goal, hroads, vroads)
 				next
 			# If neighbor not discovered yet, discover it
 			if(openSet[neighbor] != 1)
-				openSet[neighbor] == 1
-			# Calculate the new tentative score from current node to neighbor node
-			tentative_gscore <- gscore[current] + calcDistance(current, neighbor)
+				openSet[neighbor] = 1
+			# Calculate the new tentative gscore from current node to neighbor node
+			tentative_gscore <- gscore[current] + calcDistance(current, neighbor, hroads, vroads)
 			# Seems to be a bad node
+			cat("tentative_gscore")
+			print(tentative_gscore)
+			cat("gscore[current]")
+			print(gscore[current])
+			cat("distance")
+			print(calcDistance(current, neighbor, hroads, vroads))
 			if(tentative_gscore > gscore[neighbor])
 				next
 			# Best node so far found. Record it.
 			cameFrom[neighbor] <- current	
 			gscore[neighbor] <- tentative_gscore
 			fscore[neighbor] <- gscore[neighbor] + easyHeuristic(neighbor, goal) 	
-		}	
+			cat("Ein Nachbar:\n")
+			print(neighbor)
+		}
+		cat("vroads\n")
+		print(vroads)
+		cat("hroads\n")
+		print(hroads)
+		cat("openSet\n")
+		print(openSet)
+		cat("closedSet\n")
+		print(closedSet)
+		cat("gscore\n")
+		print(gscore)
+		cat("fscore\n")
+		print(fscore)
+		cat("cameFrom\n")
+		print(cameFrom)
+		readline(prompt="We are WAITING ;)")	
 	}
+	cat("A* done\n")
+	readline()
 }
 
-# Our function
+#############################################################################################
+#
+# Function to interface with the delivery man game
+#
+#############################################################################################
 ourFunction <- function(traffic, car, packages){
 	
 	start <- packages[1, c(1,2)]
 	goal <- packages[1, c(3,4)]
-	print(traffic)
-	#AStar(start, goal, hroads, vroads)
+	cat("Start 'n goal:\n")
+	print(start)
+	print(goal)
+	AStar(start, goal, traffic$hroads, traffic$vroads)
 	car$nextMove = 8;
 	return (car)
 }
 
-runDeliveryMan(carReady = ourFunction, dim = 10, turns = 10, doPlot = T, pause = 1, del = 5);
+# Run delivery man game
+runDeliveryMan(carReady = ourFunction, dim = 10, turns = 10, doPlot = F, pause = 1, del = 5);
