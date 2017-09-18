@@ -314,7 +314,7 @@ ourFunction <- function(traffic, car, packages){
 		print(car$mem$state)
 		cat("Next move: ")
 		print(car$nextMove)
-		readline(prompt="Press ENTER")
+		#readline(prompt="Press ENTER")
 
 		# Break only if a new next move is determined
 		# Do not lose turns
