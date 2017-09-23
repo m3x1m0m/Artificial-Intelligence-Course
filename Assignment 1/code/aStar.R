@@ -160,7 +160,7 @@ traceBack <- function(start, goal, cameFrom)
 # Function using a lot of other functions to realize the A* algorithm
 #
 #############################################################################################
-AStar <- function(start, goal, hroads, vroads)
+aStar <- function(start, goal, hroads, vroads)
 {
 	# Convert given coordinates to indices
 	# Indices are the standard

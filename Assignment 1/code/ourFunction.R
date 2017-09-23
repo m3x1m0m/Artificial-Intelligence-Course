@@ -78,7 +78,7 @@ ourFunction <- function(traffic, car, packages){
 				{
 					if( packages[i, 5] == 0 ) 
 					{
-						astar_res <- AStar(start, packages[i, c(1,2)], traffic$hroads, traffic$vroads)
+						astar_res <- aStar(start, packages[i, c(1,2)], traffic$hroads, traffic$vroads)
 						if( astar_res$cost < lowest_goal[2] )
 						{
 							# Better goal found -> it is closer..
@@ -107,7 +107,7 @@ ourFunction <- function(traffic, car, packages){
 				car$mem$state <- "LOADED"
 			}
 			else
-				car$nextMove <- AStar(c(car$x, car$y), car$mem$goal, traffic$hroads, traffic$vroads)$moves[1]	
+				car$nextMove <- aStar(c(car$x, car$y), car$mem$goal, traffic$hroads, traffic$vroads)$moves[1]	
 		}
 		else if( car$mem$state == "LOADED" )	
 		{
@@ -124,7 +124,7 @@ ourFunction <- function(traffic, car, packages){
 				car$mem$state <- "EMPTY"
 			}
 			else	
-				car$nextMove <- AStar(c(car$x, car$y), car$mem$goal, traffic$hroads, traffic$vroads)$moves[1] 
+				car$nextMove <- aStar(c(car$x, car$y), car$mem$goal, traffic$hroads, traffic$vroads)$moves[1] 
 		}
 
 		# Break only if a new next move is determined
