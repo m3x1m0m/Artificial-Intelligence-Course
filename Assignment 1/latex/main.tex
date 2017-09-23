@@ -1,0 +1,202 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{array}
+\newcolumntype{?}{!{\vrule width 1pt}}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{pgf}
+\usepackage{tikz}
+\usetikzlibrary{arrows,automata}
+\usepackage{float}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{mathtools}    
+\DeclarePairedDelimiterX\setc[2]{\{}{\}}{\,#1 \;\delimsize\vert\; #2\,}
+
+% APA citation style
+\bibliographystyle{apacite}
+\usepackage[natbibapa]{apacite}
+\title{Lab 1: Implementation of A* in Delivery Man Game}
+\author{You}
+\author{
+	Maximilian Stiefel
+    \and
+    Gabi Rolih
+}
+
+\begin{document}
+\begin{flushright}
+  Uppsala University,
+  1DL340 Artificial Intelligence
+\end{flushright}
+
+\begingroup
+\let\newpage\relax% Void the actions of \newpage
+\maketitle
+\endgroup
+%WHAT WE NEED TO HAVE
+%1. A theoretical overview of the A* algorithm, including an explanation of optimality conditions.
+%2. A discussion of the A* search algorithm you implemented, including a discussion of your heuristic, and whether you used a tree or graph search. Explain why you made the choices you made.
+%3. A discussion of not A* strategies you made us of to improve your performance. Explain why you used these strategies.
+
+
+\section{Introduction}
+The Delivery Man is a game played in a map environment with changing traffic conditions where the delivery man needs to find his way to packages and deliver them to their goal address as fast as possible. For this lab, we attempt to implement the A* algorithm to finish the game in as few rounds as possible, being aware of the traffic conditions.
+
+\section{A* Overview}
+In order to finish the game as fast as possible, we need to find the most optimal way to each of the packages and then to their delivery points. Because the traffic conditions change at each turn, only finding the shortest path is not what we want to accomplish. We want to be able to avoid heavy traffic and take a different turn when the conditions change. A popular algorithm to find the shortest route given the cost for different paths is A*.
+
+A* is a greedy best-first search algorithm that by evaluating nodes in the graph finds the cheapest path to the goal node.
+
+A* starts from the root node and explores each neighbor node. At each of these nodes $n$, it calculates the estimated cost of the cheapest solution through $n$, by summing $g(n)$, the cost to reach the node, and $h(n)$, the cost to get from the node to the goal \citep{russell2009artificial}.
+
+\begin{equation}
+f(n) = g(n) + h(n)
+\end{equation}
+
+The $h(n)$ is a heuristic function, which means that its value is an estimation of the cost of the cheapest path from the current node $n$ to the goal node \citep{russell2009artificial}.
+
+When it calculates the costs of all neighbor nodes, it compares all the costs and selects to expand the node with the lowest cost. Then it computes the cost of neighbors of this node (even with the node costs calculated at the previous step) and expands the node with the lowest cost. It continues in the same manner until it finds the optimal path, that is until it finds the cheapest path from root to goal. This means that there are some nodes it does not expand -- the nodes with higher $f(n)$ than the optimal solution path \citep{russell2009artificial}.
+
+A* is optimally efficient, which means that it is guaranteed to find the cheapest path by expanding the least amount of nodes possible \citep{russell2009artificial}.
+
+\subsection{Conditions for Optimality}
+A* is optimal only if heuristic $h(n)$ is optimistic and monotonic. 
+
+An optimistic heuristic does not overestimate the cost to reach the goal node. Thus the heuristic is either lower or equal to the actual cost of the path \citep{russell2009artificial}. The closer one gets to the goal node, the lower heuristic value one will get. With the most optimal estimation of heuristic, the heuristic should be 0 when the goal is reached.
+
+A monotonic heuristic fulfills the triangle inequality condition, which states that a triangle side cannot be longer than the sum of the other two sides:
+
+\newpage
+
+\begin{figure}[H]
+\begin{center}
+\begin{tikzpicture}
+\draw (0,0)
+  -- (7,0)
+  -- (4,4)
+  -- cycle;
+\draw (3.5,-0.2) node[anchor=north]{$c < a + b$};
+\draw (2.2,2.5) node[anchor=south]{$a$};
+\draw (5.5,2.5) node[anchor=south]{$b$};
+\end{tikzpicture}
+\end{center}
+\caption{Triangle inequality}
+\end{figure}
+
+Following this rule, a path cost between node $n$ and goal node cannot be higher than reaching the goal node with an alternative path that passes through two nodes. This condition is more important than the first one, because every monotonic heuristic is also optimistic \citep{russell2009artificial}.
+
+\section{Graph or Tree Search?}
+For our implementation of A* we could choose between graph search or tree search strategy. The problem itself is a graph, but we can choose to solve it by any of the two strategies. However, there are some things to consider before we decide.
+
+Tree search algorithm usually keeps a frontier list for the nodes we still need to visit. Depending on the order of inserting new nodes to this list, we can decide whether we want to use breadth-first search, depth-first search or a uniform cost search. In the case of A* we do not make this choice ourselves, because it entails choosing the node with the lowest path cost, so we automatically do the uniform cost search. In a tree search it is possible to visit nodes several times, because when we remove the nodes we evaluated from the list, they  can be discovered again just like any other nodes.
+
+Graph search is quite similar to the tree search, with one major difference: In addition to the frontier, graph search keeps a list of visited nodes too, which collects all the nodes that we already evaluated. This means that after a node is evaluated, it is inserted into the visited list and if it ever appears on the list of nodes to visit again, we skip it, because we had already evaluated it in some previous step. This solves the problem of looping that the tree search poses, but it takes more memory, because we need to keep information about all nodes we already visited.
+
+Another important piece of information we need to consider is that tree search requires an optimistic heuristic in order to bring the optimal solution, while the graph search needs a monotonic heuristic to do the same \citep{russell2009artificial}. In our case, we are able to satisfy both conditions for the heuristic, because the game is based on a coordinate system which makes it easier to choose an appropriate heuristic.
+
+\section{Implementation}
+The implementation of A* algorithm follows a standard A* pseudocode with some specific functions to fit the material that was provided to us. The implementation uses A* as a graph search, so we keep track of all nodes that we already visited. The game grid is big and most nodes have 4 neighbors, which means that we could get caught in loops when exploring using tree search. By keeping track of nodes we already evaluated, we can skip those if we encounter them again, which saves time and resolves problems with looping.
+
+To calculate an appropriate heuristic, we used the coordinate system to our advantage. In the coordinate system in the Delivery Man game, it is easy to calculate the number of steps from the current node to the goal node and all steps are equally long. We take the sum of x and y between the node and the goal and we get an adequate heuristic that is optimistic (with each step it lowers for 1 and it is always 0 at the goal node) and that is monotonic (each step is worth 1 and if we take a longer path, the number of steps increases, so a path with fewer steps can never be more costly than the path with more steps).
+
+\vskip0.5cm
+
+The implementation comprises the following functions:
+\begin{itemize}
+\item Module hFunctions.R
+\begin{itemize}
+  \item $xy2Index$ -- Converts x and y coordinates to index
+  \item $index2XY$ -- Converts index to x and y coordinates, opposite to the first function
+\end{itemize}
+\item Module aStar.R
+\begin{itemize}
+  \item $easyHeuristic$ -- Estimates the heuristic of a given node by calculating the number of steps to the goal node
+  \item $findCurrent$ -- Finds the node with the lowest $f(n)$ to expand it
+  \item $findNeighbors$ -- Finds all neighbors of a given node
+  \item $calcDistance$ -- Obtains the distance between two neighbors by using $vroads$ and $hroads$
+  \item $traceBack$ -- Traces back the optimal path to take and provides a list of moves
+  \item $aStar$ -- A* algorithm
+\end{itemize}
+\item Module ourFunction.R
+\begin{itemize}
+	\item $ourFunction$ -- Connects the smaller functions and provides new moves by looking at the state of the car 
+\end{itemize}
+\item Module main.R
+\begin{itemize}
+\item $averageTest$ -- Function to test our implementation and give an average for the number of turns it takes
+\end{itemize}
+
+\end{itemize}
+
+We start by running the Delivery Man game with $ourFunction$ that takes $trafic$, $car$, and $packages$ as arguments. It then initializes some variables, such as state of the car as $EMPTY$, the goal as an empty vector and the package carried as $NA$. Then it enters a main state machine, which manages the moves. This further explained in the next section.
+
+The A* algorithm is used for two purposes during the game: first it chooses the closest package to pick up and it is then used to find the best way to the delivery point. Because of the changing road conditions, we restart A* with every round so that it can update the directions to the goal depending on which path costs the least.
+
+In order to choose a package to move to we decided to go with A* because it can be used to calculate the costs of paths to different goals and take the least costly one, which will also be the shortest one in this case. However, this could be further improved to lower the score by considering not only package locations, but also delivery point locations and choosing the best order depending on how close we are going to be to the next package when we deliver the first one.
+
+The A* algorithm alone is integrated in the $AStar$ function. This function takes start, goal, and both road matrices as arguments. It then converts start and goal coordinates to index by using the $xy2Index$ function. Then it establishes a matrix for the $g(n)$ score, which is 0 in the beginning. Then it establishes another matrix for $f(n)$ score that is initialized by computing $easyHeuristic$ between the start and goal node. It also sets up another matrix called $closedSet$ to keep track of nodes that we already evaluated. The evaluated nodes are given the score of 1, while the unevaluated ones get a 0. Similarly there is another matrix called $openSet$ which keeps track of already discovered nodes in the same manner. In the start, the value of the current node is 1, because we have discovered that node. The final matrix we need is the $cameFrom$ matrix to keep track of the predecessor nodes and to be able to trace back our steps.
+
+After initializing all the needed variables, the $AStar$ enters a while loop where it compares the $openSet$ with a null matrix. If they are identical, that is to say if there are no nodes in the $openSet$, it returns a boolean value of FALSE. Otherwise it first checks for the node with the lowest $f(n)$ score with the function $findCurrent$. 
+
+The $findCurrent$ function initializes the $lowest\_score$ variable with a high number, which is 1000 in this case. Then it looks for a node in the $openSet$ and checks if that node has a lower score than the $lowest\_score$ variable. If so, the variable is updated with that score. After traversing the whole $openSet$, it returns the $lowest\_score$.
+
+When the $AStar$ has found a node, it first checks if that node might be the goal node. If so, it enters the $traceBack$ function that provides an array with moves the car needs to take. If not, it removes that node from the $openSet$ and adds it to the $closedSet$. It then looks for neighbors of the node and checks if they have already been evaluated. In that case it skips them. Otherwise it puts the new neighbors into the $openSet$. It then calculates the new tentative $g(n)$ score from the current node to the neighbor node. If that score is higher than the $g(n)$ score of the neighbor, it moves on to the next neighbor. In the end it finds the neighbor with the lowest tentative score and calculates $f(n)$ score by combining the tentative score with the heuristic calculated for the neighbor and goal node.
+
+\section{Additional Strategies}
+An additional strategy we took in order to control the usage of A* algorithm is the main state machine in $ourFunction$. This machine consists of four states the car can find itself in:
+\begin{figure}[H]
+\begin{center}
+\begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=6cm,
+                    semithick]
+  \tikzstyle{every state}=[fill=none,draw=black,text=black,minimum size=3.5cm]
+
+  \node[initial,state] 	(A)                    {$EMPTY$};
+  \node[state]         	(B) [above right of=A] {$MOVING\_EMPTY$};
+  \node[state]         	(D) [below right of=A] {$MOVING\_LOADED$};
+  \node[state]         	(C) [below right of=B] {$LOADED$};
+  
+  \path					(A) edge [loop above]	node {} (A)
+  							edge [bend left]	node {} (B)
+  							edge [bend left]	node {} (D)
+  						(B) edge [loop above]	node {} (B)
+                        	edge [bend left]	node {} (C)
+                        (C) edge [bend left]	node {} (D)
+                        (D) edge [loop above]	node {} (D)
+                        	edge [bend left]	node {} (A);
+                            
+\end{tikzpicture}
+\caption{Main state machine}
+\end{center}
+\end{figure}
+
+When the car has no package and does not know where to go yet, the state is defined as $EMPTY$. If the car is in this state, the function checks for the current position of the car and then looks for available packages by checking their state in the $packages$ matrix. Whenever it finds a package, it runs the A* algorithm to assess the cost needed to go to that goal. The package with the lowest cost becomes the next goal for the car to move to.
+
+When the car obtains a goal, it is in the $MOVING\_EMPTY$ state. A* is running to find the best path for each round, until we reach the package.
+
+The car then finds itself in the third stage $LOADED$ when it receives the package. This is the point where the function needs to find a new goal. This time the goal is already decided, because each of the packages have their specific delivery points. The function finds the delivery points coordinates and sets them as the goal of the car.
+
+The final state is $MOVING\_LOADED$, which is similar to the second state, except that this time the goal of the car is a delivery point. Again, at each step the A* algorithm is determining which path is the most optimal until the car reaches the delivery point.
+
+The main idea is that the car keeps transitioning between these four states, always in the same order. This loop repeats itself 5 times until we have delivered all 5 packages and the game is finished.
+
+There were some issues with A* not working properly when the car already picked up a package at its initial position or when the delivery point and package were at the same coordinates, because that interfered with the main state machine. The status changed to $LOADED$ before even entering $EMPTY$, which meant that the state machine found a package for the car to move to while it was already carrying a package. That was fixed by creating some exception handling conditions that check if the car already is loaded and find the corresponding delivery point right away and skip $EMPTY$ and $MOVING_EMPTY$ states.
+
+\section{Conclusion}
+For this lab we implemented the A* algorithm and used it to our advantage at several stages in the game. We chose the graph search version because it keeps track of nodes visited. The algorithm works smoothly and manages to complete the game in under 200 rounds. We built a main state machine that works as a connecting component between the A* and the game -- it decides when to use A* to get new moves and controls the different states of the game until there are no packages left. Even though A* does a satisfying job finding new packages to pick up, this part could be further researched and improved by choosing a different kind of algorithm that would observe both package location and delivery point location.
+
+\section{Code}
+You can find the code on \href{https://github.com/m3x1m0m/Artificial-Intelligence-Course/}{GitHub}.
+
+
+\bibliography{literature}
+\end{document}
