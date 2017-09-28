@@ -1,9 +1,25 @@
+#############################################################################################
+#
+# Function to find the most likely track
+#
+#############################################################################################
 mostlikelyTrack <- function(PM, TM, EM, obs)
 {
-	for(i in i:length(obs))
+	PM2 <- matrix(rep(0,2*(length(obs)+1)), ncol=2)
+	PM2[1, ] <- PM[1,]
+	for(i in 1:length(obs))
 	{
-		P1 <- PM[i,1]*	
-	}	
+		for(j in 1:2)
+		{
+			P1 <- PM[i,1]*TM[1,j]*EM[j,obs[i]]
+			P2 <- PM[i,2]*TM[2,j]*EM[j,obs[i]]
+			if(P1 > P2)
+				PM2[i+1, j] <- P1
+			else
+				PM2[i+1, j] <- P2	
+		}
+	}
+	return(PM2)	
 }
 
 #############################################################################################
@@ -95,3 +111,5 @@ BM <- smoothing(FM, TM, EM, obs)
 print(BM)
 PM <- calcProbabilities(FM, BM)
 print(PM)
+PM2 <- mostlikelyTrack(PM, TM, EM, obs)
+print(PM2)
