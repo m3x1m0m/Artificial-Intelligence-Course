@@ -39,47 +39,71 @@ ourFunction <- function(mnm, readings, positions, edges, gauss)
 		mnm$mem$SM <- matrix(1/NWATERH, ncol=NWATERH, nrow=1)
 		# Transition matrix
 		mnm$mem$TM <- makeTransitionM(edges)
+		# Number of moves
+		mnm$mem$nu <- 0
 		# Moves
 		mnm$moves <- c(0,0)
 	}
 	else
 	{
+		# Get transition matrix and status vector
+		SM <- mnm$mem$SM
+		TM <- mnm$mem$TM
 		# Go through all positions and check whether the croc is eating sb.
 		for(i in 1:length(positions))
 		{
 			# If TRUE sb has been eaten
 			if( is.na(positions[i]) )
 				next
+			# If TRUE sb has been just eaten
 			if(positions[i] < 0)
 			{
+				# Reset state vector
 				SM <- matrix(0, ncol=NWATERH, nrow=1)
 				SM[-positions[i]] <- 1
 			}		
 		}
-		# Get transition matrix and status vector
-		SM <- mnm$mem$SM
-		TM <- mnm$mem$TM
 		# Generate emission matrix from readings
 		EM <- makeEmissionM(readings, gauss)
 		# Perform forward algorithm
-		SM <- SM %*% TM %*% EM 
-	       	SM <- normalizeStateM(SM)
-		mnm$me$SM <- SM
-		foundyou <- mostLikelyWH(SM)[2]
-		sequence <- dijkstrasAlgo(edges, positions[3], foundyou)
-		if(length(sequence) < 2)
+		SM <- normalizeStateM(SM %*% TM) 
+		SM <- normalizeStateM(SM %*% EM)
+		# Take distance into account
+		DM <- makeDistanceM(edges, positions[3])
+		# Go to region first
+		if(mnm$mem$nu < 0)
 		{
-			mnm$moves <- c(sequence[1], 0)
+			foundyou <- mostLikelyRegion(SM %*% DM)
+			mnm$mem$nu <- mnm$mem$nu + 1
 		}
-		else if(length(sequence) < 1) 
+		else
+			foundyou <- mostLikelyWH(SM %*% DM)[2]
+		
+		sequence <- dijkstrasAlgo(edges, positions[3], foundyou)
+		if(!is.null(sequence))
 		{
-			mnm$moves <- c(0, 0)
+			if(length(sequence) < 2)
+			{
+				SM[sequence[1]] <- 0
+				mnm$moves <- c(sequence[1], 0)
+			}
+			else
+			{
+				mnm$moves <- c(sequence[1], sequence[2])
+			}
 		}
 		else
 		{
-			mnm$moves <- c(sequence[1], sequence[2])
+			SM[positions[3]] <- 0
+			mnm$moves <- c(0, 0)
 		}
+		#print(foundyou)
+		#print(sequence)
+		#print(mnm$moves)
+		#print(SM)
+		mnm$mem$SM <- normalizeStateM(SM)
 	}
+	#readline(prompt="Press ENTER.")
 	return(mnm)
 }
 

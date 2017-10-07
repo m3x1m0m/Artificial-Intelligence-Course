@@ -71,24 +71,24 @@ makeTransitionM <- function(edges)
 #############################################################################################
 makeEmissionM <- function(readings, gauss)
 {
-	EM <- matrix(0, nrow=NWATERH, ncol=NOBSS)
+	EMT <- matrix(0, nrow=NWATERH, ncol=NOBSS)
+	EM <- matrix(0, nrow=NWATERH, ncol=NWATERH)
 	# For every waterhole convert salinity, phosphate and nitrogen to a probability
 	for(i in 1:NWATERH)
 	{
 		for(j in 1:NOBSS)
 		{
-			EM[i,j] <- dnorm(readings[j], gauss[[j]][i,1], gauss[[j]][i,2])
+			EMT[i,j] <- dnorm(readings[j], gauss[[j]][i,1], gauss[[j]][i,2])
 		}	
 	}
 	# The three variables are independent 
-	# So P(A,B,C) = P(A), P(B), P(C) 
-	EM <- EM[,1] * EM[,2] * EM[,3]
-	EMT <- matrix(0, nrow=NWATERH, ncol=NWATERH)
+	# So P(A,B,C) = P(A) * P(B) * P(C) 
+	EMT <- EMT[,1] * EMT[,2] * EMT[,3]
 	for(i in 1:NWATERH)
 	{
-		EMT[i,i] <- EM[i]
+		EM[i,i] <- EMT[i]
 	}
-	return(EMT)
+	return(EM)
 }
 
 #############################################################################################
@@ -109,17 +109,33 @@ normalizeStateM <- function(SM)
 
 #############################################################################################
 #
-# Function to predict state that lies x steps in the future (Markov Chain)
+# Function to create a distance matrix weighting acc. to distance
 #
 #############################################################################################
-predictState <- function(SM, TM, x)
+makeDistanceM <- function(edges, position)
 {
-		return(SM %*% TM^x)
+	lowest <- Inf
+	dist <- 0
+	DMT <- matrix(1, nrow=NWATERH, ncol=1)
+	DM <- matrix(0, nrow=NWATERH, ncol=NWATERH)
+	for(i in 1:NWATERH)
+	{
+		dist <- length(dijkstrasAlgo(edges, position, i)) +1
+		if(dist < lowest)
+			lowest <- dist
+		DMT[i] <- dist
+	}
+	DMT <- lowest/DMT
+	for(i in 1:NWATERH)
+	{
+		DM[i,i] <- DMT[i]
+	}
+	return(DM)
 }
 
 #############################################################################################
 #
-# Function to determine which waterhole the croc is sitting after x turns
+# Function to determine which waterhole is most likely to be the location of croc
 #
 #############################################################################################
 mostLikelyWH <- function(SM)
@@ -136,3 +152,28 @@ mostLikelyWH <- function(SM)
 	return(highest)
 }
 
+#############################################################################################
+#
+# Function to find the most likely region where Croc is 
+#
+#############################################################################################
+mostLikelyRegion <- function(SM)
+{
+	highest <- 0
+	goal <- 0
+	sum <- 0
+	for(i in 1:NWATERH)
+	{
+		sum <- sum + SM[i] 	
+		if( i%%(NWATERH/4) == 0)
+		{
+			if(sum > highest)
+			{
+				highest <- sum
+				goal <- i - (NWATERH/8)
+			}
+			sum <- 0
+		}
+	}
+	return(goal)
+}

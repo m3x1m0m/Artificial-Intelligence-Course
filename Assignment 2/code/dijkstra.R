@@ -31,7 +31,7 @@ NWATERH <- 40
 #############################################################################################
 backtraceDijkstra <- function(goal, predecessorVertex)
 {
-	sequence <- c(0)
+	sequence <- c()
 	currentVertex <- goal
 	while( !is.na(predecessorVertex[currentVertex]) )
 	{

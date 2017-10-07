@@ -25,7 +25,7 @@ averageTest <- function(tests){
 	sum = 0
 	for (i in 1:tests) 
 	{
-		sum <- sum + runWheresCroc(ourFunction, showCroc = T, pause = 0) 		 
+		sum <- sum + runWheresCroc(ourFunction, showCroc = 1, pause = 0) 		 
 	        if(i%%10==0)
 		{
 			print(i)
