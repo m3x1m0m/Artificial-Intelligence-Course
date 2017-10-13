@@ -1,7 +1,7 @@
 #############################################################################################
 #
 # Project:	Assignment 2, Artificial Intelligence, Uppsala University
-# Author: 	Maximilian Stiefel
+# Author: 	Gabi Rolih, Maximilian Stiefel
 # Last mod.:	01.10.2017
 # File:		dijkstra.R 
 # Description:	Implementing Dijkstra's algorithm for the current problem
