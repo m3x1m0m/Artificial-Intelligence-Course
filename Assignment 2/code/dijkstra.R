@@ -1,6 +1,6 @@
 #############################################################################################
 #
-# Project:	Assignment 1, Artificial Intelligence, Uppsala University
+# Project:	Assignment 2, Artificial Intelligence, Uppsala University
 # Author: 	Maximilian Stiefel
 # Last mod.:	01.10.2017
 # File:		dijkstra.R 

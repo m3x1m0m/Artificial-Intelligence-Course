@@ -1,10 +1,10 @@
 #############################################################################################
 #
-# Project:	Assignment 1, Artificial Intelligence, Uppsala University
+# Project:	Assignment 2, Artificial Intelligence, Uppsala University
 # Author: 	Maximilian Stiefel
 # Last mod.:	01.10.2017
 # File:		hFunctions.R 
-# Description:	Functions to help using some problems
+# Description:	Functions to solve some problems
 #
 #############################################################################################
 
@@ -58,7 +58,7 @@ makeTransitionM <- function(edges)
 		# Use gained knowledge to modify transition matrix
 		for(m in buff)
 		{
-			TM[m, i] <- 1/nvertices
+			TM[i, m] <- 1/nvertices
 		}
 	}
 	return(TM)
@@ -103,7 +103,7 @@ normalizeStateM <- function(SM)
 	{
 		sum <- sum + SM[i]	
 	}
-	SM <- SM/sum
+	SM <- SM * (1/sum)
 	return(SM)
 }
 
@@ -150,30 +150,4 @@ mostLikelyWH <- function(SM)
 		}	
 	}
 	return(highest)
-}
-
-#############################################################################################
-#
-# Function to find the most likely region where Croc is 
-#
-#############################################################################################
-mostLikelyRegion <- function(SM)
-{
-	highest <- 0
-	goal <- 0
-	sum <- 0
-	for(i in 1:NWATERH)
-	{
-		sum <- sum + SM[i] 	
-		if( i%%(NWATERH/4) == 0)
-		{
-			if(sum > highest)
-			{
-				highest <- sum
-				goal <- i - (NWATERH/8)
-			}
-			sum <- 0
-		}
-	}
-	return(goal)
 }

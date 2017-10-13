@@ -4,7 +4,7 @@
 # Author: 	Maximilian Stiefel
 # Last mod.:	01.10.2017
 # File:		main.R 
-# Description:	Main
+# Description:	Main module
 #
 #############################################################################################
 
