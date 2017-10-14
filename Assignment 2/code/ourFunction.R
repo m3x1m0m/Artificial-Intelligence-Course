@@ -74,8 +74,8 @@ ourFunction <- function(mnm, readings, positions, edges, gauss)
 			# Perform forward algorithm
 			# Take distance into account
 			DM <- makeDistanceM(edges, positions[3])
-			SM <- normalizeStateM(SM %*% TM %*% EM %*% DM)
-			foundyou <- mostLikelyWH(SM)[2]
+			SM <- SM %*% TM %*% EM
+			foundyou <- mostLikelyWH(SM %*% DM)[2]
 			sequence <- dijkstrasAlgo(edges, positions[3], foundyou)
 			if(!is.null(sequence))
 			{
