@@ -22,7 +22,7 @@ source('ourFunction.R')
 # Global variables
 #############################################################################################
 dim = 10
-test = 500
+test = 1000
 
 #############################################################################################
 # Function to test our code
@@ -46,4 +46,4 @@ averageTest <- function(tests){
 	return(0)
 }
 
-averageTest(500)
+averageTest(test)

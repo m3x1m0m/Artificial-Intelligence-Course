@@ -1,0 +1,246 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{array}
+\newcolumntype{?}{!{\vrule width 1pt}}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{pgf}
+\usepackage{tikz}
+\usetikzlibrary{arrows,automata}
+\usepackage{float}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{mathtools}    
+\DeclarePairedDelimiterX\setc[2]{\{}{\}}{\,#1 \;\delimsize\vert\; #2\,}
+\usepackage{units}
+\usepackage{ifthen}
+\usetikzlibrary{calc}
+
+% APA citation style
+\bibliographystyle{apacite}
+\usepackage[natbibapa]{apacite}
+\title{Lab 2: Implementation of Hidden Markov Models in Where's Croc Game}
+\author{You}
+\author{
+	Maximilian Stiefel
+    \and
+    Gabi Rolih
+}
+
+\begin{document}
+\begin{flushright}
+  Uppsala University,
+  1DL340 Artificial Intelligence
+\end{flushright}
+
+\begingroup
+\let\newpage\relax% Void the actions of \newpage
+\maketitle
+\endgroup
+%TIPS FROM SLIDES
+%State Estimation
+%-Given an initial state, transition and sensor probabilities, we can iteratively calculate the distribution at each
+%subsequent state.
+%-We can do this 'online'.
+
+%Note that for Lab B
+%-Vector of 3 observations (conditionally independent – see Inference on HMMs document)
+%-Sparse transition matrix (many impossible transitions).
+%-Assume random walk with possibility of staying still.
+%-Presumably uniform initial state.
+%-NOT real time.
+
+%WHAT WE NEED
+%overview of HMM and current state estimation algorithm
+%overview and discussion of HMM we implemented
+%additional strategies
+\section{Introduction}
+Sometimes we want to know about things we cannot observe directly, but only by seeing the impact of what is going on. In artificial intelligence, we can use Markov models to predict a state using observations that are connected to the state. In this lab, we use hidden Markov models in the game Where's Croc. The game is about an Australian national park with 40 waterholes. There is a crocodile named Croc with a device attached on its back. The device used to send information about Croc to the ranger in the park via a wireless communication link. Unfortunately the location can not be obtained anymore from the device, but other sensor readings measuring chemical features of the water Croc is swimming in are still available. By leveraging a Hidden Markov model we are able to predict Croc's location based solely on the readings from the waterholes besides knowing the park topology and to finish the game as fast as possible. 
+
+\section{Hidden Markov Models}
+%Hidden Markov models are used in signal processing, bioinformatics, image processing and natural language processing. 
+As mentioned above, sometimes we need the information about a specific state in a given situation. For example, a car mechanic wants to know which parts of the car are broken in order to repair them, or a doctor wants to know how severe someone's disease is in order to prescribe the correct type and dosage of medicine to the patient. These examples differ in one important aspect: the first example is a static situation and the second one is dynamic.That means that in the first case, the state of the car does not change -- what is broken will stay broken until the mechanic repairs the car. On the other hand, the state of the patient's disease changes over time -- the disease can progress, so the patient cannot take the same dose of medicine all the time.
+
+Hidden Markov models are the perfect tool we can use when we make observations of dynamic events and based on those, we can predict the state. Since a car being broken is a static event, we need to make some observations once and then we can determine the state of the car. But in the case of a patient, we will need to make observations in steady intervals to prescribe a lower or a higher dosage of a medicine. The state itself is unobservable, we can only track how the patient is feeling and act according to the lab results, to decide which state of disease the patient find himself in. This is where hidden Markov models come in handy.
+
+\cite{russell2009artificial} state that Hidden Markov models are temporal probabilistic models in which the state of the process is described by a single discrete random variable, where the possible values of the variable represent the possible states of the world. 
+
+This means that we have a state \ensuremath{S} that we want to estimate, because we cannot observe it directly. As we are looking at dynamic events, we need to predict the state in certain point of time. We also have a set of observations \ensuremath{O}, where \ensuremath{O_t} is an observation at time \ensuremath{t}. To be able to predict the state, we need a model that specifies how the world evolves i.e. a transition model, and a model that specifies how the evidence quantifies i.e. a observation model.
+
+The transition model models probability distribution over the latest state variables, given the previous values. The observation model does the same for our observations. For the reason that those sets are not finite, we make a Markov assumption, which states that the current state only depends on a fixed number of previous states \citep{russell2009artificial}. This kind of model is a Markov chain. If we say that the current state depends on only one previous state, that is a first-order Markov chain. Accordingly, if we look at the previous two states, it is a second-order Markov chain.
+
+\begin{equation}
+P(S_{t}|S_{0:t-1}) = P(S_{t}|S_{t-1})
+\end{equation}
+
+When we have transition and observation models, we need to know the probability distribution at time \ensuremath{t=0} for the state. Once we have that, we have a full joint distribution over all variables and we have set up the hidden Markov model:
+
+For any $t$,
+\begin{equation}
+P(S_{0:t},O_{1:t})=P(S_{0}\prod_{i=1}^{t}P(S_{i}|S_{i-1})P(O_{i}|S_{i})
+\end{equation}
+\vskip 0.5cm
+
+There are several tasks such a model can solve:
+\begin{enumerate}
+\item \textbf{Filtering}
+
+Filtering is estimating the current state. We compute posterior distribution over the most recent state given all evidence up till that state.
+
+\begin{equation}
+P(S_{t}|o_{1:t})
+\end{equation}
+\item \textbf{Prediction}
+
+Prediction is estimation of a state in the future. We compute posterior distribution over the future state given all evidence up to date.
+\begin{equation}
+P(S_{t+k}|o_{1:t}), \quad where \ k>0
+\end{equation}
+\item \textbf{Smoothing}
+
+Smoothing is estimation of a state in the past that we had already estimated before, but with estimating states after that past state, we can re-estimate the past state and get a more approximate estimation. We compute posterior distribution over a past state given all evidence up to date.
+\begin{equation}
+P(S_{k}|o_{1:t}), \quad where \ 0 \leq k<t
+\end{equation}
+\item \textbf{Most likely explanation}
+
+Given observations, we compute the state sequence that is most likely to have generated them.
+\begin{equation}
+argmax_{s_{1:t}}\ P(S_{1:t}|o_{1:t})
+\end{equation}
+\item \textbf{Learning}
+
+We can learn transition and observation model from observations. For this we use an Expectation-Maximization algorithm where we learn from observations and then predict the new state distributions.
+\end{enumerate}
+
+
+\section{Filtering/Current State Estimation}
+Filtering or current state estimation is the task that we are trying to solve in this lab, because we want to find Croc's location at the present time. For that we can use the forward algorithm. This algorithm uses the distribution of the previous state variable and current observations to iteratively calculate the probability distribution at different times with the help of dynamic programming \citep{Ashcroft17}.
+
+We are calculating $f_{t,i}$, which is the estimation of state $s_{i}$ at time $t$:
+\begin{align*}
+For \ a=1,...,t: \\ %Do you know how to align these to the left side?
+for \ b=1,...,n: \\
+f_{a,b} = \sum_{i}^{n}(f_{a-1,i} \ T_{i,b})\ E_{a,j}, \quad where \ O_{a}=e_{j}
+\end{align*}
+
+For the game Where's Croc we will need to find Croc, so the possible states to transition between will be $Croc$ and $\neg{Croc}$. The transition matrix will be the probability distribution of $Croc$ across all available waterholes and the corresponding probability distribution for $\neg{Croc}$. In the beginning, this distribution will be uniform, unless one of the Swedish backpackers gets eaten in the very first round. Observations in our case are the sensor readings. These readings will be turned into a probability first and then a probability of all readings together will be computed. 
+\vskip 0.5cm
+\tikzstyle{vertex}=[draw,black,fill=blue,circle,minimum size=30pt,inner sep=0pt]
+\tikzstyle{edge}=[very thick]
+\begin{figure}
+\begin{tikzpicture}[scale=2.5]
+    \node (a)[vertex,fill=gray!10,align=left] at (0,0) {$S_{0}$};
+    \node (b)[vertex,fill=gray!10,align=left] at (1,0) {$S_{1}$};
+    \node (c)[vertex,fill=gray!10,align=left] at (2,0)  {$S_{2}$};
+    \node (post) at (3,0){};
+    \node (prev) at (0,0.4){$\neg{Croc}$};
+
+    \node (b1)[vertex,fill=gray!10,align=left] at (1,-1)  {$O_{1}$};
+    \node (c1)[vertex,fill=gray!10,align=left] at (2,-1)  {$O_{2}$};
+
+    \path[thick,->] (a)    edge node [anchor=center,above,sloped] {} (b);
+    \path[thick,->] (b)    edge node [anchor=center,above,sloped] {} (c);
+    \path[thick,->] (c)    edge node [anchor=center,above,sloped] {} (post);
+
+    \path[thick,->] (b)    edge node [anchor=center,above,sloped] {} (b1);
+    \path[thick,->] (c)    edge node [anchor=center,above,sloped] {} (c1);
+\end{tikzpicture}
+\caption{HMM in Bayesian network representation}
+\end{figure}
+
+At each time step $t$ for each possible state we multiply the $f_{t-1}$ with the probability of transitioning from the previous state to the current state and the probability of observations at the given state. We then sum over those numbers and we get the probability of the state $s$ at given time $t$.
+
+To play the game, we need to prepare the transition and observation matrix as the calculations above are carried out in each iteration with matrix multiplication for convenience reasons. The transition matrix is only calculated once as the topology does not change while the game is being played. Every turn a new matrix for the observations has to be prepared. It is not an emission matrix in the classic sense though as it changes every turn. 
+
+The \ensuremath{40 \times 40} matrix representing the given emissions will change every turn and looks like this:
+\vskip 0.5cm
+\begin{equation}
+E = \begin{bmatrix}
+       P(W=1)	& 0 		& 0 & ... 	& 0 			\\
+       0 		& P(W=2) 	& 0 & ... 	& 0 			\\
+       0 		& 0 		& P(W=3) 	& ... & 0 		\\
+	   . 		& .  		& .       	& .   & . 		\\
+       . 		& .  		& .       	& .   & . 		\\
+       . 		& .  		& .      	& .   & . 		\\
+       0 		& 0 		&    0   	& ... & P(W=40)	\\
+     \end{bmatrix}
+\end{equation}
+\vskip 0.5cm
+
+The given probabilities on the main diagonal are the product of the probabilities for measuring the given salinity, phosphate or nitrogen value corresponding to a waterhole. It is possible to multiply them as the probabilities are independent. One can also express this as a set of equations. 
+For waterhole $i$ ($W=i$), one has a salinity value $a$ ($S=a$), a phosphate value $b$ ($P=b$) and a nitrogen value $c$ ($N=c$) from the electronics on Croc's back. With the give Gaussian probability distributions one can conclude probability values for every waterhole. 
+\begin{equation}
+	P(i|a\cap b \cap c) = P(i|a) \cdot P(i|b) \cdot P(i|c)
+\end{equation}
+The resulting matrix \ensuremath{E} can be simply generated every turn, given the readouts, and then it can be multiplied with the state vector \ensuremath{S} to get a new state vector. 
+\begin{equation}
+	S = \bigl[ S_1\,S_2\,S_3\,...\,S_{40}\bigr]
+\end{equation}
+This state vector simply contains the probabilities that the crocodile is at a certain waterhole right now.
+
+Creating the transition matrix happens only once during the initialization phase of the game. One only needs to go through the topology and analyze how the water holes are connected. If two waterholes are e.g. disconnected the probability that Croc transits from the one waterhole to the other one is simply \ensuremath{0}. It is reasonable that the probability of Croc going to each of the connected waterholes is equal i.e. \ensuremath{\frac{1}{\text{number of connected waterholes}}}, since the crocodile just follows its instincts.  
+\begin{equation}
+T = \begin{bmatrix}
+       t_{1,1}	& t_{1,2} 	& t_{1,3} 	& ... 	& t_{1,40}	\\
+       t_{1,2} 	& t_{2,2} 	& t_{2,3} 	& ... 	& t_{2,40}	\\
+       t_{1,3} 	& t_{2,3}	& t_{3,3} 	& ... 	& t_{3,40} 	\\
+	   . 		& .  		& .       	& .   	& . 		\\
+       . 		& .  		& .       	& .   	& . 		\\
+       . 		& .  		& .      	& .   	& . 		\\
+       t_{40,1} & t_{40,2} 	& t_{40,3}  & ... 	& t_{40,40}	\\
+     \end{bmatrix}
+\end{equation}
+\ensuremath{t_{1,1}} represents for instance the probability that if Croc is at waterhole one that it will be at waterhole two in the next turn. 
+ %Add more precise info on how we calculate the state prediction for Where's Croc
+ 
+\section{Implementation}
+There are three separate modules for our function:
+\begin{itemize}
+\item ourFunction -- Function to interface with the runWheresCroc function
+\item hFunctions -- Various help functions to create matrices, normalize probabilities and finding Croc's location
+\item dijkstra -- Implementation of Dijkstra's algorithm to obtain the quickest route to the speculated location of Croc
+\end{itemize}
+
+The module $ourFunction$ consists of a function with the same name that takes five arguments: $mnm$, $readings$, $positions$, $edges$, and $gauss$. In the beginning, this function creates state and transition matrices. In later rounds, it retrieves the transition matrix and status vector from the memory the game provides. It then first checks through the $positions$ list to see if the Swedish backpackers ($sb$) have been eaten in this round. If someone has just been eaten, the state matrix resets and that position is assigned with probability of 1 that the Croc is there.
+
+After that, the emission matrix is generated from $readings$. The forward algorithm is performed by using the nicely prepared "emission matrix" and transition matrix. Thereafter the most likely waterhole is determined. $edges$, $positions$ and $foundyou$ variables are used in Dijkstra's algorithm to find the shortest path to the waterhole where the location of Croc is assumed.
+
+The module $hFunctions$ comprises the following smaller functions: 
+\begin{itemize}
+\item The function $findNeighbours$ finds all neighbors of a waterhole. The definition of neighbours includes hereby the waterhole itself. 
+\item The function $makeTransitionM$ initializes an empty transition matrix and then makes use of the $findNeighbours$ function to count all connected waterholes and manipulates the matrix accordingly. 
+\item The function $makeEmissionM$ creates two empty matrices. In the first one, $EMT$, the probability distribution for salinity, phosphate and nitrogen that are obtained given the probability distributions for every  waterhole and the readouts. In the end it uses the independence rule to calculate the probability of all three readings and returns the emission matrix.
+\item The function $normalizeStateM$ is used to normalize the state matrix values, so that they sum up to 1. It does that by counting  the number of state matrix values and then dividing the matrix with that number.
+\item The function $mostLikelyWH$ determines in which waterhole Croc is most likely swimming at the moment. It takes the state matrix and finds the highest waterhole with maximum probability.
+
+\end{itemize}
+
+\section{Additional Strategies}
+As mentioned in the previous section, there is another module in our solution -- $dijkstra$. This module implements the famous Dijkstra algorithm, which is used to find the shortest path from one point in a graph to the goal point.
+
+Dijkstra's algorithm uses edge costs to calculate the path from one node to another. It keeps a set of visited nodes, which only contains the start node in the beginning, and a set of unvisited nodes, which contains all other nodes in the beginning. Start node is initialized with 0, all the other nodes are initialized with infinity. The algorithm starts by looking at the start node and its neighbors and sums the node value (0 for start node) with the edge value to one of the neighbors. It then updates the neighbor node's value with the new value calculated. It does that separately for each of the neighbors and when it is done, it moves to the neighbor node with the lowest computed cost. For each node it also keeps track of the previous node we visited. That node is inserted into the visited list and then its neighbors are explored. Again, the cost of each of its neighbors is calculated in the same way and the numbers are updated as long as the calculated value is less than the previous values. When we get to the goal, we find the shortest path by looking at the previous vertices going from the goal node back to the start node.
+
+The module $dijkstra$ has two functions, one to compute the costs and one to backtrack the cheapest path. $dijkstrasAlgo$ takes $edges$, $start$ and $goal$ as arguments and creates a matrix to keep track of explored vertexes. It creates another matrix called $costVertex$ to store the costs for each vertex, which is infinity for all but start node, which is 0. The final matrix is then created to keep track of predecessor vertices. It then explores each vertex and updates information in the same manner as described above. Before it returns the result, it enters the other function, $backtraceDijkstra$ where it looks at predecessor vertexes and stores the shortest path into a sequence. This sequence is reversed before returning.
+
+Another strategy we used to speed up is the use of a weights to determine where to go. This is where the function $makeDistanceM$ in $hFunctions$ module becomes useful. It takes edges and Croc's position to calculate the distance with $dijkstrasAlgo$ function and then creates a distance matrix weighting according to the position. Hence, this approach is based on the human intuition to rather visit waterholes where the probability of Croc frolicking there is still relatively high than going to the waterhole with the highest possibility which is marginally more likely the location of Croc but being located at the other end of national park.  
+
+A further detail we included is that if Croc is not found in the waterhole we checked, that waterhole is set to 0 in the state vector.
+
+\section{Conclusion}
+In this project, we implemented hidden Markov models for state prediction in the game Where's Croc. Additionally, we implemented Dijkstra's path-finding algorithm to maximize our result. After testing the implementation, we receive an average result of 4.5 rounds per game. This proves that hidden Markov models are a useful tool for state prediction, not only in games, but in many other applications, which is also evident in their widespread usage. 
+
+\section{Code}
+You can find the code on \href{https://github.com/m3x1m0m/Artificial-Intelligence-Course/}{GitHub}.
+
+\bibliography{literature}
+\end{document}
